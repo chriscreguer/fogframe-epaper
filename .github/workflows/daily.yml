@@ -1,0 +1,46 @@
+name: daily-frame
+
+# Runs on GitHub's servers — your computer stays off.
+on:
+  schedule:
+    - cron: "0 9 * * *"   # 09:00 UTC — pick an hour that suits you; GitHub cron drifts a few min
+  workflow_dispatch: {}    # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write          # needed to commit the regenerated frame back
+
+concurrency:
+  group: daily-frame
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Build today's frame
+        env:
+          DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+          DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+        run: python build.py
+
+      - name: Commit frame + state
+        run: |
+          git config user.name  "fogframe-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add device/frame.bin device/preview.png world
+          if git diff --quiet --cached; then
+            echo "No changes today."
+          else
+            git commit -m "daily frame $(date -u +%F)"
+            git push
+          fi

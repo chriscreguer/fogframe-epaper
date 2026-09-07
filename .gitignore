@@ -1,0 +1,22 @@
+# your configuration — holds your location, never commit it
+config.toml
+
+# secrets — never commit
+.env
+dropbox.env
+dropbox_refresh.json
+firmware/fogframe/secrets.h
+
+# your baked base map (regenerate with make_base_map.py)
+assets/map_base.png
+.tilecache/
+
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# local build artifacts (CI commits device/ and world/)
+build/
+.DS_Store

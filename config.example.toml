@@ -1,0 +1,61 @@
+# fogframe configuration — copy to config.toml and edit.
+#   cp config.example.toml config.toml
+# config.toml is gitignored, so your location never gets committed.
+
+[map]
+# Bounding box to render, in decimal degrees. Pick this carefully: it is baked
+# into assets/map_base.png. The box is automatically expanded to match the
+# canvas aspect ratio, so it does not need to be 3:4 itself.
+# Default is Manhattan — a placeholder so the example runs. Replace it.
+north =  40.800
+south =  40.700
+west  = -74.020
+east  = -73.960
+
+[canvas]
+# Must match your panel. 13.3" Spectra-6 (T133A01) is 1200x1600 portrait.
+width  = 1200
+height = 1600
+
+[basemap]
+# XYZ raster tiles used by make_base_map.py to bake assets/map_base.png.
+# Any {z}/{x}/{y} raster source works. Check the provider's usage policy —
+# this fetches a few hundred tiles once, which is fine for most, but do not
+# point it at a source that forbids bulk access.
+tile_url    = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+attribution = "(c) OpenStreetMap contributors"
+# Tile zoom. 0 = pick automatically (one level above 1:1, then downsample).
+zoom = 0
+# Contact address sent in User-Agent. OSM requires a real one.
+user_agent = "fogframe/1.0 (https://github.com/YOURNAME/fogframe-epaper)"
+
+[colors]
+fog            = [70, 70, 70]      # unexplored overlay, neutral grey
+fog_opacity    = 0.62
+recent         = [210, 35, 35]     # newly explored tint
+water          = [64, 110, 180]    # water you have not travelled
+water_explored = [255, 255, 255]   # water you have (boat/kayak/ice)
+
+[water]
+# Water is found in the base map by hue, in PIL's 0-255 HSV space. These
+# defaults match the OSM Carto style. make_base_map.py prints the dominant
+# hues it saw — use that to retune for a different tile style.
+hue_lo  = 100
+hue_hi  = 138
+sat_min = 40
+
+[render]
+recent_days    = 30   # how long new exploration stays tinted
+fringe_px      = 3    # ignore new pixels within N px of old territory (GPS jitter)
+min_cluster_px = 4    # ignore new clusters smaller than this
+
+[panel]
+sat_boost     = 2.4   # amplify muted base-map colour before 6-colour quantising
+sat_threshold = 0.40  # below this saturation -> neutral black/white
+
+[source]
+# "local"   — read a folder containing a Sync/ directory
+# "dropbox" — pull it, using DROPBOX_* env vars (see README)
+kind = "local"
+path = "~/Fog of World"
+dropbox_folder = "/Apps/Fog of World"
