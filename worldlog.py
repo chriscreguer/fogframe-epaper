@@ -120,11 +120,20 @@ def load_delta(path):
     return d["keys"], d["added"], d["removed_keys"], d["removed"]
 
 
-def replay(log_dir, upto=None):
-    """Cumulative world state at `upto` (inclusive). Additive: ignores removals."""
+def replay(log_dir, upto=None, before=None):
+    """
+    Cumulative world state. Additive: ignores removals.
+
+    `upto`   include deltas up to and including this date.
+    `before` include deltas strictly before this date. Callers rewriting a
+             day's own delta MUST pass it, or that day's already-recorded
+             pixels land in `prev` and the rewrite drops them.
+    """
     state = {}
     for p in delta_paths(log_dir):
         if upto is not None and p.stem > str(upto):
+            break
+        if before is not None and p.stem >= str(before):
             break
         keys, added, _, _ = load_delta(p)
         for key, bits in zip(map(tuple, keys.tolist()), added):
@@ -162,6 +171,36 @@ def derive_discovery_log(log_dir, shape=None):
             new = (bits[sy0:sy1, sx0:sx1] == 1) & (sub == 0)
             sub[new] = ordinal
     return disc
+
+
+def total_px(log_dir):
+    """Explored pixels the archive replays to, worldwide."""
+    return sum(int(np.unpackbits(b).sum()) for b in replay(log_dir).values())
+
+
+def check_monotonic(log_dir):
+    """
+    Assert the archive never shrinks, and record the new high-water mark.
+
+    Replay is additive, so the pixel count can only ever grow. A drop means
+    a delta was overwritten or truncated — the failure mode where a second
+    run in one day rewrote that day's file with only its increment. Cheap to
+    run (a few hundred KB of deltas) and it fails the build loudly instead of
+    silently losing history.
+    """
+    log_dir = Path(log_dir)
+    meta_path = log_dir / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    now = total_px(log_dir)
+    was = meta.get("total_px")
+    if was is not None and now < was:
+        raise SystemExit(
+            f"ARCHIVE REGRESSION: replays to {now:,} px, was {was:,} "
+            f"({was - now:,} lost). Refusing to continue.")
+    meta.update({"format_version": FORMAT_VERSION, "total_px": now,
+                 "days": len(delta_paths(log_dir))})
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+    return now, was
 
 
 def stats(log_dir):

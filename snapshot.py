@@ -6,6 +6,9 @@ Appends a whole-world delta to world/ (see worldlog.py): only the blocks that
 changed, and only the bits that turned on. A typical day costs well under a
 kilobyte and covers the entire planet, not just the frame's bbox.
 
+After appending, the archive is checked for regression: replay is additive,
+so its pixel count can only grow, and a drop means a delta was clobbered.
+
 Reads the Fog of World database; never writes to it.
 
 Usage:
@@ -31,7 +34,10 @@ log = logging.getLogger("snapshot")
 def update_world_log(data_dir, today, log_dir=WORLD_LOG_DIR, database_id="primary"):
     """Append today's whole-world delta. Returns the path, or None if nothing new."""
     log_dir = Path(log_dir)
-    prev = wl.replay(log_dir) if log_dir.exists() else {}
+    # `before=today` is load-bearing: replaying today's own delta into `prev`
+    # would make a second run of the day rewrite that file with only the
+    # increment, erasing what the first run recorded.
+    prev = wl.replay(log_dir, before=str(today)) if log_dir.exists() else {}
     cur = wl.scan(data_dir)
     added, removed = wl.diff(prev, cur)
     n_add = sum(int(np.unpackbits(b).sum()) for _, b in added)
@@ -47,6 +53,8 @@ def update_world_log(data_dir, today, log_dir=WORLD_LOG_DIR, database_id="primar
         wl.write_meta(log_dir, database_id)
     log.info(f"World log: +{n_add:,} px across {len(added)} blocks "
              f"→ {path.name} ({path.stat().st_size/1024:.1f} KB)")
+    now, was = wl.check_monotonic(log_dir)
+    log.info(f"Archive: {now:,} px worldwide" + (f" (was {was:,})" if was else ""))
     return path
 
 

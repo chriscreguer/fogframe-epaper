@@ -3,7 +3,10 @@ name: daily-frame
 # Runs on GitHub's servers — your computer stays off.
 on:
   schedule:
-    - cron: "0 9 * * *"   # 09:00 UTC — pick an hour that suits you; GitHub cron drifts a few min
+    # GitHub defers scheduled runs on shared runners — measured 3.5-8h late on a
+    # real repo, so treat this as a hint, not a promise. If you want the frame
+    # fresh at a particular time, run every few hours rather than guessing the lag.
+    - cron: "23 9 * * *"   # :23 avoids the top-of-hour crush
   workflow_dispatch: {}    # lets you trigger a run manually from the Actions tab
 
 permissions:
@@ -25,6 +28,9 @@ jobs:
           cache: pip
 
       - run: pip install -r requirements.txt
+
+      - name: Archive regression tests
+        run: python test_worldlog.py
 
       - name: Build today's frame
         env:
