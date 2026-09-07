@@ -41,6 +41,7 @@ an authenticated URL to fetch its frame — see
 | `parser.py` | Decode Fog of World sync tiles (from CaviarChen's parser) |
 | `sources.py` | Resolve the data source: a local folder or Dropbox |
 | `dropbox_pull.py` | Download the Sync folder via a Dropbox refresh token |
+| `dropbox_auth.py` | One-time helper to obtain that refresh token |
 | `worldlog.py` | Whole-world delta archive: scan, append, replay, derive |
 | `snapshot.py` | Append today's delta |
 | `make_base_map.py` | Bake `assets/map_base.png` for your bbox from XYZ tiles |
@@ -54,6 +55,26 @@ an authenticated URL to fetch its frame — see
 nibble = even pixel, nibble = panel colour code
 `0x0=W 0x2=G 0x6=R 0xB=Y 0xD=B 0xF=BK`). The firmware streams it straight into
 the Seeed_GFX sprite — no on-device decoding.
+
+## What you need
+
+There is no service to host and nothing of mine to depend on.
+
+| | Needed? | Cost |
+|---|---|---|
+| The Fog of World app | yes — it is the data source | the app |
+| A GitHub account | only for the daily cloud build | free (public repo = free Actions) |
+| Map tiles | no account; OpenStreetMap's public server | free |
+| A Dropbox app | **only** for the cloud build | free, one-time setup |
+| XIAO ESP32-S3 + EE02 + 13.3" Spectra-6 panel | yes | the real cost |
+
+**Running locally needs no accounts at all** — set `[source] kind = "local"`,
+point it at your synced Fog of World folder and run `build.py` yourself.
+
+Dropbox is only needed because GitHub's runners cannot see your machine, so a
+headless daily build needs its own way to read the data. If you would rather
+not create a Dropbox app, run the build on a machine of your own on a cron and
+push the result.
 
 ## Setup
 
@@ -102,16 +123,34 @@ Check `device/preview.png`.
 
 ### 4. Run it daily in the cloud
 
-For `kind = "dropbox"`, add these under
+Skip this if you are building locally.
+
+Access tokens expire after a few hours, which is no good for a cron job, so the
+build uses a non-expiring *refresh* token and mints short-lived access tokens
+from it. To get one:
+
+```bash
+python dropbox_auth.py
+```
+
+It prints the exact steps for creating the app (free, ~2 minutes), walks the
+authorise flow, and hands back the three values to paste into
 Settings → Secrets and variables → Actions:
 
-| Name | Value |
-|------|-------|
-| `DROPBOX_APP_KEY` | your Dropbox app key |
-| `DROPBOX_APP_SECRET` | your Dropbox app secret |
-| `DROPBOX_REFRESH_TOKEN` | a long-lived refresh token from the offline OAuth flow |
+| Name | What it is |
+|------|------------|
+| `DROPBOX_APP_KEY` | from your app's Settings tab |
+| `DROPBOX_APP_SECRET` | from the same place |
+| `DROPBOX_REFRESH_TOKEN` | produced by `dropbox_auth.py`; does not expire |
+
+Grant `files.metadata.read` and `files.content.read` **before** authorising, or
+the token comes back without the scopes and downloads fail.
 
 Then Actions → **daily-frame** → *Run workflow*.
+
+> Scheduled runs are deferred by GitHub, historically by hours rather than
+> minutes. If you want the frame fresh at a specific time, run every few hours
+> rather than trying to guess the lag.
 
 ### 5. Flash the firmware
 
