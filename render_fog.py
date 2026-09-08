@@ -23,8 +23,10 @@ import contextlib
 from datetime import date, timedelta
 from pathlib import Path
 
+import json
+
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
 
 HERE = Path(__file__).parent
@@ -43,6 +45,17 @@ import worldlog as wl
 
 BASE_MAP_PATH      = HERE / "assets" / "map_base.png"
 WORLD_LOG_DIR      = HERE / "world"
+LABELS_PATH        = HERE / "assets" / "labels.json"
+
+LABELS_ON    = CFG["labels"]["enabled"]
+LABEL_MAX    = CFG["labels"]["max"]
+LABEL_PAD    = CFG["labels"]["pad"]
+LABEL_SIZES  = {0: 40, 1: 32, 2: 30, 3: 27, 4: 23, 5: 21}   # by place rank
+FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+]
 
 COLOR_FOG        = tuple(CFG["colors"]["fog"])
 FOG_OPACITY      = CFG["colors"]["fog_opacity"]
@@ -130,6 +143,55 @@ def _load_recent_mask(world_shape):
     return _ssaa(recent.astype(np.uint8))
 
 
+def _font(size):
+    for path in FONT_CANDIDATES:
+        if Path(path).exists():
+            try:
+                return ImageFont.truetype(path, size)
+            except OSError:
+                pass
+    try:
+        return ImageFont.load_default(size=size)      # Pillow >= 10.1, scalable
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _draw_labels(img):
+    """Draw place names over the finished image. No-op if none are baked."""
+    if not LABELS_ON:
+        return 0
+    if not LABELS_PATH.exists():
+        log.info("No labels.json — skipping place names (run make_labels.py)")
+        return 0
+    places = json.loads(LABELS_PATH.read_text())
+    x0, x1, y0, y1 = geo.bbox_world()
+    draw = ImageDraw.Draw(img)
+    placed, n = [], 0
+
+    for pl in sorted(places, key=lambda d: (d["rank"], d["name"])):
+        if n >= LABEL_MAX:
+            break
+        px = (geo.lng_to_wx(pl["lon"]) - x0) / (x1 - x0) * CANVAS_W
+        py = (geo.lat_to_wy(pl["lat"]) - y0) / (y1 - y0) * CANVAS_H
+        font = _font(LABEL_SIZES.get(pl["rank"], 21))
+        l, t, r, b = draw.textbbox((0, 0), pl["name"], font=font)
+        w, h = r - l, b - t
+        bx0, by0 = px - w / 2, py - h / 2
+        box = (bx0 - LABEL_PAD, by0 - LABEL_PAD, bx0 + w + LABEL_PAD, by0 + h + LABEL_PAD)
+        if box[0] < 0 or box[1] < 0 or box[2] > CANVAS_W or box[3] > CANVAS_H:
+            continue
+        if any(box[0] < q[2] and q[0] < box[2] and box[1] < q[3] and q[1] < box[3]
+               for q in placed):
+            continue
+        # white halo then black text: quantises to clean BLACK-on-WHITE
+        draw.text((bx0 - l, by0 - t), pl["name"], font=font, fill=(0, 0, 0),
+                  stroke_width=3, stroke_fill=(255, 255, 255))
+        placed.append(box)
+        n += 1
+    log.info(f"Labels: drew {n} of {len(places)} places")
+    return n
+
+
 def render(data_dir, out_path):
     world = build_world_array(data_dir)
     explored = _ssaa(world)                       # 0..1 explored coverage
@@ -165,9 +227,11 @@ def render(data_dir, out_path):
         out = out * (1.0 - a) + np.array(COLOR_RECENT, dtype=np.float32) * a
 
     out = np.clip(out, 0, 255).astype(np.uint8)
+    img = Image.fromarray(out, mode="RGB")
+    _draw_labels(img)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(out, mode="RGB").save(out_path)
+    img.save(out_path)
     log.info(f"Saved → {out_path}")
     return out_path
 

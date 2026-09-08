@@ -7,8 +7,9 @@ dropbox.env
 dropbox_refresh.json
 firmware/fogframe/secrets.h
 
-# your baked base map (regenerate with make_base_map.py)
+# baked for your location — regenerate with make_base_map.py / make_labels.py
 assets/map_base.png
+assets/labels.json
 .tilecache/
 
 # python

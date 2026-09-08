@@ -45,6 +45,8 @@ an authenticated URL to fetch its frame — see
 | `worldlog.py` | Whole-world delta archive: scan, append, replay, derive |
 | `snapshot.py` | Append today's delta |
 | `make_base_map.py` | Bake `assets/map_base.png` for your bbox from XYZ tiles |
+| `make_labels.py` | Bake place names for your bbox from Overpass |
+| `make_dither.py` | Regenerate the blue-noise mask (already committed) |
 | `render_fog.py` | Composite fog over the base map → RGB canvas |
 | `pack_spectra6.py` | Quantise to the 6 Spectra colours → `device/frame.bin` |
 | `build.py` | Run the whole pipeline (used by CI) |
@@ -113,7 +115,21 @@ rather than reimplementing it.
 It also prints the dominant hues it found — see
 [Water detection](#water-detection) if you change tile styles.
 
-### 3. Try it locally
+### 3. Bake the place names
+
+```bash
+python make_labels.py
+```
+
+Fetches neighbourhood and city names for your bbox from Overpass (no account,
+no key) into `assets/labels.json`. Done once, so the daily build never depends
+on a third-party API being up.
+
+Labels are drawn *after* the fog rather than baked into the base map, so they
+stay crisp instead of being dimmed and dithered along with everything beneath
+them. Set `[labels] enabled = false` to skip them.
+
+### 4. Try it locally
 
 ```bash
 python build.py --data "/path/to/Fog of World"
@@ -121,7 +137,7 @@ python build.py --data "/path/to/Fog of World"
 
 Check `device/preview.png`.
 
-### 4. Run it daily in the cloud
+### 5. Run it daily in the cloud
 
 Skip this if you are building locally.
 
@@ -152,7 +168,7 @@ Then Actions → **daily-frame** → *Run workflow*.
 > minutes. If you want the frame fresh at a specific time, run every few hours
 > rather than trying to guess the lag.
 
-### 5. Flash the firmware
+### 6. Flash the firmware
 
 - Arduino IDE: install **Seeed_GFX** (remove TFT_eSPI if present — they conflict).
 - `cp firmware/fogframe/secrets.h.example firmware/fogframe/secrets.h` and fill
@@ -223,6 +239,16 @@ Water is found in the base map **by hue**, not from map data, so it depends on
 your tile style. `[water] hue_lo/hue_hi/sat_min` defaults suit OSM Carto.
 `make_base_map.py` prints the dominant saturated hues in your baked map — if
 water is being missed or land is being flooded, set the range from that output.
+
+### Fog texture
+The panel has six colours and none of them is grey, so flat tone is made by
+dithering black and white. The mask is blue noise (`assets/bluenoise.npy`,
+built by `make_dither.py` via void-and-cluster) rather than an ordered Bayer
+grid — same average density, but no periodic structure, so fog reads as tone
+instead of regularly spaced dots competing with your exploration lines.
+
+Regenerate it only if you want a different size or seed; the committed one is
+deterministic and style-independent.
 
 ### Look
 `[colors]` sets the fog overlay, its opacity, the recent tint and the two water

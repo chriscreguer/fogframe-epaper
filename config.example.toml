@@ -51,6 +51,13 @@ sat_min = 40
 hue_lo = 45
 hue_hi = 95
 
+[labels]
+# Place names, fetched once by make_labels.py and drawn over the finished map.
+# They are drawn AFTER the fog, so they stay legible over unexplored areas.
+enabled = true
+max     = 22   # cap; a dense city otherwise becomes a wall of text
+pad     = 6    # px of clearance required between two labels
+
 [render]
 recent_days    = 30   # how long new exploration stays tinted
 fringe_px      = 3    # ignore new pixels within N px of old territory (GPS jitter)
