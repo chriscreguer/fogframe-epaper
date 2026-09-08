@@ -51,13 +51,6 @@ sat_min = 40
 hue_lo = 45
 hue_hi = 95
 
-[labels]
-# Place names, fetched once by make_labels.py and drawn over the finished map.
-# They are drawn AFTER the fog, so they stay legible over unexplored areas.
-enabled = true
-max     = 22   # cap; a dense city otherwise becomes a wall of text
-pad     = 6    # px of clearance required between two labels
-
 [render]
 recent_days    = 30   # how long new exploration stays tinted
 fringe_px      = 3    # ignore new pixels within N px of old territory (GPS jitter)
@@ -69,11 +62,13 @@ sat_boost     = 2.4   # amplify muted base-map colour before 6-colour quantising
 # the saturation of the raw base map. 0.32 keeps parks green under fog with the
 # OSM Carto defaults above; raise it toward 0.40 for a more neutral frame.
 sat_threshold = 0.32  # below this saturation -> neutral black/white
-# Drop dithered white pixels with no orthogonal white neighbour. Costs under
-# 1pp of white coverage but removes the scatter of stray bright dots, which on
-# e-paper bloom and compete with your exploration lines. Only safe with the
-# blue-noise mask; with an ordered Bayer grid it would darken the fog badly.
-despeckle = true
+# Unexplored ground sits in a narrow band of mid grey. Dithering that band
+# normally yields a checkerboard plus a sparse 8 px lattice of extra white
+# pixels, which reads as a grid of bright dots. Snapping the band to a flat
+# checkerboard removes the grid and keeps the even tone. Defaults suit
+# fog_opacity = 0.62; check where your own fog lands before changing them.
+flat_lo = 0.40
+flat_hi = 0.62
 
 [source]
 # "local"   — read a folder containing a Sync/ directory

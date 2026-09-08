@@ -45,8 +45,6 @@ an authenticated URL to fetch its frame — see
 | `worldlog.py` | Whole-world delta archive: scan, append, replay, derive |
 | `snapshot.py` | Append today's delta |
 | `make_base_map.py` | Bake `assets/map_base.png` for your bbox from XYZ tiles |
-| `make_labels.py` | Bake place names for your bbox from Overpass |
-| `make_dither.py` | Regenerate the blue-noise mask (already committed) |
 | `render_fog.py` | Composite fog over the base map → RGB canvas |
 | `pack_spectra6.py` | Quantise to the 6 Spectra colours → `device/frame.bin` |
 | `build.py` | Run the whole pipeline (used by CI) |
@@ -115,21 +113,7 @@ rather than reimplementing it.
 It also prints the dominant hues it found — see
 [Water detection](#water-detection) if you change tile styles.
 
-### 3. Bake the place names
-
-```bash
-python make_labels.py
-```
-
-Fetches neighbourhood and city names for your bbox from Overpass (no account,
-no key) into `assets/labels.json`. Done once, so the daily build never depends
-on a third-party API being up.
-
-Labels are drawn *after* the fog rather than baked into the base map, so they
-stay crisp instead of being dimmed and dithered along with everything beneath
-them. Set `[labels] enabled = false` to skip them.
-
-### 4. Try it locally
+### 3. Try it locally
 
 ```bash
 python build.py --data "/path/to/Fog of World"
@@ -137,7 +121,7 @@ python build.py --data "/path/to/Fog of World"
 
 Check `device/preview.png`.
 
-### 5. Run it daily in the cloud
+### 4. Run it daily in the cloud
 
 Skip this if you are building locally.
 
@@ -168,7 +152,7 @@ Then Actions → **daily-frame** → *Run workflow*.
 > minutes. If you want the frame fresh at a specific time, run every few hours
 > rather than trying to guess the lag.
 
-### 6. Flash the firmware
+### 5. Flash the firmware
 
 - Arduino IDE: install **Seeed_GFX** (remove TFT_eSPI if present — they conflict).
 - `cp firmware/fogframe/secrets.h.example firmware/fogframe/secrets.h` and fill
@@ -241,25 +225,20 @@ your tile style. `[water] hue_lo/hue_hi/sat_min` defaults suit OSM Carto.
 water is being missed or land is being flooded, set the range from that output.
 
 ### Fog texture
-The panel has six colours and none of them is grey, so flat tone is made by
-dithering black and white. The mask is blue noise (`assets/bluenoise.npy`,
-built by `make_dither.py` via void-and-cluster) rather than an ordered Bayer
-grid — same average density, but no periodic structure, so fog reads as tone
-instead of regularly spaced dots competing with your exploration lines.
+The panel has six colours and none is grey, so flat tone is made by dithering
+black and white. Unexplored ground sits in a narrow band of mid grey, and an
+ordered dither renders that band as a checkerboard *plus* a sparse 8 px lattice
+of extra white pixels wherever the tone lands just above 50%. The checkerboard
+is the even grey you want; the lattice on top of it reads as a grid of bright
+dots, since an isolated white pixel blooms on e-paper.
 
-Regenerate it only if you want a different size or seed; the committed one is
-deterministic and style-independent.
+`[panel] flat_lo` / `flat_hi` snap that band to an exact checkerboard, which
+removes the lattice and keeps the evenness — 50% white, no periodic structure,
+no noise. The defaults suit `fog_opacity = 0.62`; if you change the fog, check
+where your unexplored tone actually lands before adjusting them.
 
-`[panel] despeckle` then drops dithered white pixels that have no orthogonal
-white neighbour. On blue noise those are stray specks — removing them costs
-under 1pp of white coverage, invisible — but on e-paper an isolated white pixel
-blooms against its dark neighbours and reads as a bright dot competing with
-your exploration lines. Street lines and label strokes survive, since both have
-neighbours along their run.
-
-This only works because of the blue noise. With an ordered Bayer grid at ~50%
-grey, *every* white pixel is orthogonally isolated, so the same pass would
-strip ~20pp of tone and turn the fog dark.
+Streets inside the fog and explored ground both sit above the band, so neither
+is flattened.
 
 ### Look
 `[colors]` sets the fog overlay, its opacity, the recent tint and the two water
