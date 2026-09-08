@@ -250,6 +250,17 @@ instead of regularly spaced dots competing with your exploration lines.
 Regenerate it only if you want a different size or seed; the committed one is
 deterministic and style-independent.
 
+`[panel] despeckle` then drops dithered white pixels that have no orthogonal
+white neighbour. On blue noise those are stray specks — removing them costs
+under 1pp of white coverage, invisible — but on e-paper an isolated white pixel
+blooms against its dark neighbours and reads as a bright dot competing with
+your exploration lines. Street lines and label strokes survive, since both have
+neighbours along their run.
+
+This only works because of the blue noise. With an ordered Bayer grid at ~50%
+grey, *every* white pixel is orthogonally isolated, so the same pass would
+strip ~20pp of tone and turn the fog dark.
+
 ### Look
 `[colors]` sets the fog overlay, its opacity, the recent tint and the two water
 colours. `[render] recent_days` controls how long new exploration stays tinted;

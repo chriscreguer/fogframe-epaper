@@ -71,6 +71,15 @@ def _dither_mask():
 
 _MASK = _dither_mask()
 
+# Drop dithered white pixels that have no orthogonal white neighbour. On blue
+# noise these are stray specks carrying almost no tone — under 1pp of white
+# coverage — but they read as a scatter of bright dots on e-paper, where an
+# isolated white pixel blooms against dark neighbours. Street lines and label
+# strokes survive: both have neighbours along their run. (Never enable this
+# with Bayer: at ~50% grey every white pixel is orthogonally isolated, so it
+# would strip ~20pp of tone and darken the fog.)
+DESPECKLE     = CFG["panel"]["despeckle"]
+
 PARK_HUE_LO   = CFG["park"]["hue_lo"]
 PARK_HUE_HI   = CFG["park"]["hue_hi"]
 
@@ -113,6 +122,14 @@ def quantize(rgb_img):
     mh, mw = _MASK.shape
     thresh = np.tile(_MASK, (H // mh + 1, W // mw + 1))[:H, :W]
     out = np.where(lum > thresh, 1, 0).astype(np.uint8)   # 1=WHITE, 0=BLACK
+    if DESPECKLE:
+        w = out == 1
+        neigh = np.zeros_like(w)
+        neigh[1:, :] |= w[:-1, :]
+        neigh[:-1, :] |= w[1:, :]
+        neigh[:, 1:] |= w[:, :-1]
+        neigh[:, :-1] |= w[:, 1:]
+        out[w & ~neigh] = 0
 
     # Base classification: nearest of RED (recent trips/arterials) or GREEN (parks).
     # Yellow stays excluded (the muted base misfires green parkland to yellow).

@@ -69,6 +69,11 @@ sat_boost     = 2.4   # amplify muted base-map colour before 6-colour quantising
 # the saturation of the raw base map. 0.32 keeps parks green under fog with the
 # OSM Carto defaults above; raise it toward 0.40 for a more neutral frame.
 sat_threshold = 0.32  # below this saturation -> neutral black/white
+# Drop dithered white pixels with no orthogonal white neighbour. Costs under
+# 1pp of white coverage but removes the scatter of stray bright dots, which on
+# e-paper bloom and compete with your exploration lines. Only safe with the
+# blue-noise mask; with an ordered Bayer grid it would darken the fog badly.
+despeckle = true
 
 [source]
 # "local"   — read a folder containing a Sync/ directory
