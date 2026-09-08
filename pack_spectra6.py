@@ -55,6 +55,9 @@ _BAYER8 = np.array([
     [15, 47, 7, 39, 13, 45, 5, 37], [63, 31, 55, 23, 61, 29, 53, 21],
 ], dtype=np.float32) / 64.0
 
+PARK_HUE_LO   = CFG["park"]["hue_lo"]
+PARK_HUE_HI   = CFG["park"]["hue_hi"]
+
 SAT_BOOST     = CFG["panel"]["sat_boost"]      # amplify the muted base-map colours before classifying
 SAT_THRESHOLD = CFG["panel"]["sat_threshold"]  # (on boosted image) below this -> neutral black/white
 
@@ -110,14 +113,14 @@ def quantize(rgb_img):
     # never actually recently explored. Real trip-red is essentially always
     # hue==0 (a flat painted overlay colour); real park green sits ~48-64.
     red_hue = (hue <= 10) | (hue >= 245)
-    green_hue = (hue >= 45) & (hue <= 80)
+    green_hue = (hue >= PARK_HUE_LO) & (hue <= PARK_HUE_HI)
     assign = chromatic & (red_hue | green_hue)
     out[assign] = nearest[assign]
 
     # Water override: lake/river read as teal-cyan (hue ~112-128), which sits
     # between the green and dark-navy blue palette entries, so nearest-colour
     # grabs green. Force the cyan band to BLUE. Parks (hue ~48-64) are untouched.
-    water = chromatic & (hue >= 96) & (hue <= 175)
+    water = chromatic & (hue > PARK_HUE_HI) & (hue <= 175)
     out[water] = 4                                                 # BLUE
     return out
 

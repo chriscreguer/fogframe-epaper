@@ -44,6 +44,13 @@ hue_lo  = 100
 hue_hi  = 138
 sat_min = 40
 
+[park]
+# Parkland is found by hue, exactly like water, so it is tile-style dependent.
+# OSM Carto's park green sits near hue 88; Mapbox's is nearer 60. Widen or move
+# this band if parks come out grey. make_base_map.py reports the hues it saw.
+hue_lo = 45
+hue_hi = 95
+
 [render]
 recent_days    = 30   # how long new exploration stays tinted
 fringe_px      = 3    # ignore new pixels within N px of old territory (GPS jitter)
@@ -51,7 +58,10 @@ min_cluster_px = 4    # ignore new clusters smaller than this
 
 [panel]
 sat_boost     = 2.4   # amplify muted base-map colour before 6-colour quantising
-sat_threshold = 0.40  # below this saturation -> neutral black/white
+# Fog desaturates whatever it covers, so unexplored parkland lands well below
+# the saturation of the raw base map. 0.32 keeps parks green under fog with the
+# OSM Carto defaults above; raise it toward 0.40 for a more neutral frame.
+sat_threshold = 0.32  # below this saturation -> neutral black/white
 
 [source]
 # "local"   — read a folder containing a Sync/ directory

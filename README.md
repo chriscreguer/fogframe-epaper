@@ -207,6 +207,17 @@ The recommended setup is a **private repo**. The panel then cannot fetch
 
 ## Tuning
 
+### Parks not showing green
+Parkland is matched by hue, so it is tile-style dependent — OSM Carto's park
+green sits near hue 88, Mapbox's nearer 60. Two settings gate it, and both
+matter: `[park] hue_lo/hue_hi` must contain your style's green, and
+`[panel] sat_threshold` must be low enough that parkland still counts as
+coloured *after* the fog overlay desaturates it. Fog costs roughly 0.15 of
+saturation, which is why the default is 0.32 rather than 0.40.
+
+Widening the park band also reduces false blue, since greens just past the
+band's top edge otherwise fall into the water hue range.
+
 ### Water detection
 Water is found in the base map **by hue**, not from map data, so it depends on
 your tile style. `[water] hue_lo/hue_hi/sat_min` defaults suit OSM Carto.
