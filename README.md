@@ -45,6 +45,7 @@ an authenticated URL to fetch its frame — see
 | `worldlog.py` | Whole-world delta archive: scan, append, replay, derive |
 | `snapshot.py` | Append today's delta |
 | `make_base_map.py` | Bake `assets/map_base.png` for your bbox from XYZ tiles |
+| `strip_labels.py` | Paint baked-in place labels out of a base map |
 | `render_fog.py` | Composite fog over the base map → RGB canvas |
 | `pack_spectra6.py` | Quantise to the 6 Spectra colours → `device/frame.bin` |
 | `build.py` | Run the whole pipeline (used by CI) |
@@ -207,6 +208,21 @@ The recommended setup is a **private repo**. The panel then cannot fetch
 
 ## Tuning
 
+### Labels in the base map
+Most tile styles bake place names into the image, and they cannot be switched
+off afterwards. Two ways out: point `[basemap] tile_url` at a `_nolabels`
+variant if your provider has one, or run
+
+```bash
+python strip_labels.py
+```
+
+which masks the label glyphs by luminance — in a pale style they are usually
+the only genuinely dark thing in the image — and fills them by inpainting
+inward from the surrounding map. It keeps the original as
+`map_base.labelled.png`. Check the result: if your style has dark roads or
+railways they will be caught too, and you want a lower `--thresh`.
+
 ### Parks not showing green
 Parkland is matched by hue, so it is tile-style dependent — OSM Carto's park
 green sits near hue 88, Mapbox's nearer 60. Two settings gate it, and both
@@ -239,6 +255,11 @@ where your unexplored tone actually lands before adjusting them.
 
 Streets inside the fog and explored ground both sit above the band, so neither
 is flattened.
+
+### Green meaning "explored"
+`[render] chroma_when_explored` drains colour from unexplored ground, so
+parkland only shows green where you have actually walked. Leave it off if you
+would rather see all parks regardless of coverage.
 
 ### Look
 `[colors]` sets the fog overlay, its opacity, the recent tint and the two water

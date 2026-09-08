@@ -53,6 +53,10 @@ hue_hi = 95
 
 [render]
 recent_days    = 30   # how long new exploration stays tinted
+# Drain colour from unexplored ground. With this off, parkland is green whether
+# or not you have been there, so green means "park"; with it on, green means
+# "park you have walked" and unexplored parks fall back to plain fog grey.
+chroma_when_explored = true
 fringe_px      = 3    # ignore new pixels within N px of old territory (GPS jitter)
 min_cluster_px = 4    # ignore new clusters smaller than this
 

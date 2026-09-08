@@ -63,6 +63,7 @@ WATER_SAT_MIN = CFG["water"]["sat_min"]
 
 SSAA, SSAA_THRESH = 4, 20
 RECENT_DAYS = CFG["render"]["recent_days"]
+CHROMA_WHEN_EXPLORED = CFG["render"]["chroma_when_explored"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%H:%M:%S", stream=sys.stdout)
@@ -150,6 +151,15 @@ def render(data_dir, out_path):
     # Fog: dark overlay where NOT explored
     fog_alpha = (FOG_OPACITY * (1.0 - explored))[:, :, np.newaxis]
     out = base * (1.0 - fog_alpha) + np.array(COLOR_FOG, dtype=np.float32) * fog_alpha
+
+    # Colour only survives where you have been. Without this, parkland keeps
+    # its green everywhere and green means "park" rather than "park you have
+    # walked"; draining chroma in proportion to coverage makes it the latter.
+    # Water is repainted below and is unaffected.
+    if CHROMA_WHEN_EXPLORED:
+        e = explored[:, :, np.newaxis]
+        grey = (0.299 * out[:, :, 0:1] + 0.587 * out[:, :, 1:2] + 0.114 * out[:, :, 2:3])
+        out = grey + (out - grey) * e
 
     # Water (over the fog): blue where untraveled, white where you've been,
     # blended by the anti-aliased explored mask for a soft boundary.
