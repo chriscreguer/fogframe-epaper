@@ -35,7 +35,13 @@ def strip(path, thresh=150, dilate=3):
     mask = lum < thresh
     if dilate:
         mask = ndimage.binary_dilation(mask, iterations=dilate)
-    print(f"label mask: {mask.sum():,} px ({100*mask.mean():.3f}% of image)")
+    frac = 100 * mask.mean()
+    print(f"label mask: {mask.sum():,} px ({frac:.3f}% of image)")
+    if frac > 4.0:
+        print(f"  WARNING: {frac:.1f}% is far more than labels usually cover. This style"
+              "\n  probably has dark features that are not text — road casings, building"
+              "\n  outlines, POI icons — and they are about to be painted out too."
+              "\n  Inspect the result, and try a lower --thresh or a no-labels tile source.")
 
     out = a.astype(np.float64)
     todo = mask.copy()

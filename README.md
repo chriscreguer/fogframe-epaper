@@ -210,18 +210,24 @@ The recommended setup is a **private repo**. The panel then cannot fetch
 
 ### Labels in the base map
 Most tile styles bake place names into the image, and they cannot be switched
-off afterwards. Two ways out: point `[basemap] tile_url` at a `_nolabels`
-variant if your provider has one, or run
+off afterwards. There is no clean universal fix — pick whichever fits your
+style.
 
-```bash
-python strip_labels.py
-```
+**A no-labels tile source**, if your provider has one. This is the tidiest
+route, but check the style still has coloured parks: CARTO's `light_nolabels`,
+for instance, renders parkland grey, so green would never appear.
 
-which masks the label glyphs by luminance — in a pale style they are usually
-the only genuinely dark thing in the image — and fills them by inpainting
-inward from the surrounding map. It keeps the original as
-`map_base.labelled.png`. Check the result: if your style has dark roads or
-railways they will be caught too, and you want a lower `--thresh`.
+**`python strip_labels.py`**, which masks label glyphs by luminance and fills
+them by inpainting inward from the surrounding map. This works well only when
+the text is the *only* dark thing in the style — a pale, label-light render,
+where the mask lands around 1-2% of the image. On a detailed style it is the
+wrong tool: run against the OSM Carto default it altered 12% of the image,
+taking POI icons and building outlines with it and still leaving text behind.
+It warns when the mask looks too large. The original is kept as
+`map_base.labelled.png`.
+
+**Or leave them.** The labels quantise to black and are legible on the panel;
+the default config keeps them.
 
 ### Parks not showing green
 Parkland is matched by hue, so it is tile-style dependent — OSM Carto's park
