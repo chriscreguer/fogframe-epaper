@@ -264,8 +264,20 @@ is flattened.
 
 ### Green meaning "explored"
 `[render] chroma_when_explored` drains colour from unexplored ground, so
-parkland only shows green where you have actually walked. Leave it off if you
-would rather see all parks regardless of coverage.
+parkland only shows green where you have actually walked.
+
+Walked parkland is then painted as a flat `[colors] park` fill rather than left
+to the packer's per-pixel classification, which came out speckled — explored
+parkland sits right around the saturation cutoff, so pixels a hair under it
+fell through to the neutral checkerboard and punched holes in the green.
+
+`[park] close` bridges the thin light gaps that footways and drives cut through
+the hue mask. Without it you get white streaks down the middle of every walked
+path, since the path surface is not park-coloured. Lower it if green bleeds
+onto streets beside your parks.
+
+Note `[colors] park` must land in the packer's green hue band (PIL 45-80). The
+panel's own palette green is hue 93 and quantises to black.
 
 ### Look
 `[colors]` sets the fog overlay, its opacity, the recent tint and the two water

@@ -35,6 +35,10 @@ fog_opacity    = 0.62
 recent         = [210, 35, 35]     # newly explored tint
 water          = [64, 110, 180]    # water you have not travelled
 water_explored = [255, 255, 255]   # water you have (boat/kayak/ice)
+# Parkland you have walked. Must land in the packer's green hue band (PIL
+# 45-80) or it will not survive quantisation — the panel's own palette green
+# is hue 93 and comes out BLACK.
+park           = [120, 170, 80]
 
 [water]
 # Water is found in the base map by hue, in PIL's 0-255 HSV space. These
@@ -48,8 +52,14 @@ sat_min = 40
 # Parkland is found by hue, exactly like water, so it is tile-style dependent.
 # OSM Carto's park green sits near hue 88; Mapbox's is nearer 60. Widen or move
 # this band if parks come out grey. make_base_map.py reports the hues it saw.
-hue_lo = 45
-hue_hi = 95
+hue_lo  = 45
+hue_hi  = 95
+sat_min = 25
+# Footways and drives inside a park are not park-coloured, so the hue mask has
+# thin gaps running through it exactly where you walk — which render as white
+# streaks along your paths. Closing over this many pixels bridges them. Set to
+# 0 to disable if it bleeds green onto streets beside your parks.
+close   = 9
 
 [render]
 recent_days    = 30   # how long new exploration stays tinted

@@ -60,6 +60,16 @@ MIN_CLUSTER_PX = CFG["render"]["min_cluster_px"]
 WATER_HUE_LO  = CFG["water"]["hue_lo"]
 WATER_HUE_HI  = CFG["water"]["hue_hi"]
 WATER_SAT_MIN = CFG["water"]["sat_min"]
+# Parkland is found in the base map by hue, then painted as a flat region where
+# explored — the same treatment water gets. Classifying it per pixel instead
+# left it speckled: explored parkland straddles the packer's saturation cutoff,
+# so pixels just under it fall through to the neutral checkerboard, punching
+# holes in the green and fraying its edges. A flat fill has no such boundary.
+PARK_HUE_LO   = CFG["park"]["hue_lo"]
+PARK_HUE_HI   = CFG["park"]["hue_hi"]
+PARK_SAT_MIN  = CFG["park"]["sat_min"]
+PARK_CLOSE    = CFG["park"]["close"]
+COLOR_PARK    = tuple(CFG["colors"]["park"])
 
 SSAA, SSAA_THRESH = 4, 20
 RECENT_DAYS = CFG["render"]["recent_days"]
@@ -160,6 +170,21 @@ def render(data_dir, out_path):
         e = explored[:, :, np.newaxis]
         grey = (0.299 * out[:, :, 0:1] + 0.587 * out[:, :, 1:2] + 0.114 * out[:, :, 2:3])
         out = grey + (out - grey) * e
+
+    # Parks you have walked: flat green, so the shape reads cleanly at 1 bit.
+    # A park's footways and drives are not park-coloured, so a raw hue mask has
+    # thin light gaps running through it exactly where you walk, which rendered
+    # as white streaks down the middle of every path. Closing bridges them.
+    park_mask = (
+        (bhsv[:, :, 0] >= PARK_HUE_LO) & (bhsv[:, :, 0] <= PARK_HUE_HI)
+        & (bhsv[:, :, 1] >= PARK_SAT_MIN)
+    )
+    if PARK_CLOSE > 1:
+        park_mask = ndimage.binary_closing(park_mask, structure=np.ones((PARK_CLOSE,) * 2))
+    walked_park = park_mask & (explored > 0.5)
+    out = np.where(walked_park[:, :, np.newaxis],
+                   np.array(COLOR_PARK, dtype=np.float32), out)
+    log.info(f"Parks: {int(park_mask.sum()):,} px, walked {int(walked_park.sum()):,}")
 
     # Water (over the fog): blue where untraveled, white where you've been,
     # blended by the anti-aliased explored mask for a soft boundary.
