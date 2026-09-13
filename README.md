@@ -262,14 +262,21 @@ where your unexplored tone actually lands before adjusting them.
 Streets inside the fog and explored ground both sit above the band, so neither
 is flattened.
 
-### Green meaning "explored"
-`[render] chroma_when_explored` drains colour from unexplored ground, so
-parkland only shows green where you have actually walked.
+### Everything is painted flat
+At 1200x1600 on six colours a dithered edge is just stray pixels, and the map
+is too small and too detailed to spend legibility approximating tones. So
+nothing is left to per-pixel quantisation:
 
-Walked parkland is then painted as a flat `[colors] park` fill rather than left
-to the packer's per-pixel classification, which came out speckled — explored
-parkland sits right around the saturation cutoff, so pixels a hair under it
-fell through to the neutral checkerboard and punched holes in the green.
+| region | drawn as |
+|---|---|
+| unexplored ground | fogged, desaturated, dithered — the one unavoidable one, since the panel has no grey |
+| covered land | solid white |
+| covered parkland | solid `[colors] park` |
+| water | solid, blue or white by coverage |
+| recently explored | solid `[colors] recent` |
+
+Letting the base map through instead put black speckle through every covered
+path and cut white streaks through what should have been solid green parkland.
 
 `[park] close` bridges the thin light gaps that footways and drives cut through
 the hue mask. Without it you get white streaks down the middle of every walked

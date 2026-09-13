@@ -73,7 +73,6 @@ COLOR_PARK    = tuple(CFG["colors"]["park"])
 
 SSAA, SSAA_THRESH = 4, 20
 RECENT_DAYS = CFG["render"]["recent_days"]
-CHROMA_WHEN_EXPLORED = CFG["render"]["chroma_when_explored"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%H:%M:%S", stream=sys.stdout)
@@ -158,45 +157,49 @@ def render(data_dir, out_path):
     )
     log.info(f"Water: {int(water_mask.sum()):,} px")
 
-    # Fog: dark overlay where NOT explored
+    # Everything the panel can show is painted as a flat region. Nothing here
+    # is left to per-pixel quantisation, because at 1200x1600 on six colours a
+    # dithered edge is just stray pixels, and the map is too small and too
+    # detailed to spend legibility on approximating tones nobody asked for.
+    #
+    # Unexplored ground is the one exception: grey does not exist on this panel,
+    # so it is the single flat checkerboard the packer makes. Everything drawn
+    # over it is solid.
+    ex = explored > 0.5
+
+    # Unexplored: the base map, fogged and fully desaturated. Greyscale here
+    # means no stray colour can survive into ground you have never walked.
     fog_alpha = (FOG_OPACITY * (1.0 - explored))[:, :, np.newaxis]
     out = base * (1.0 - fog_alpha) + np.array(COLOR_FOG, dtype=np.float32) * fog_alpha
+    grey = (0.299 * out[:, :, 0:1] + 0.587 * out[:, :, 1:2] + 0.114 * out[:, :, 2:3])
+    out = np.repeat(grey, 3, axis=2)
 
-    # Colour only survives where you have been. Without this, parkland keeps
-    # its green everywhere and green means "park" rather than "park you have
-    # walked"; draining chroma in proportion to coverage makes it the latter.
-    # Water is repainted below and is unaffected.
-    if CHROMA_WHEN_EXPLORED:
-        e = explored[:, :, np.newaxis]
-        grey = (0.299 * out[:, :, 0:1] + 0.587 * out[:, :, 1:2] + 0.114 * out[:, :, 2:3])
-        out = grey + (out - grey) * e
-
-    # Parks you have walked: flat green, so the shape reads cleanly at 1 bit.
-    # A park's footways and drives are not park-coloured, so a raw hue mask has
-    # thin light gaps running through it exactly where you walk, which rendered
-    # as white streaks down the middle of every path. Closing bridges them.
+    # Parkland, as one region rather than a per-pixel hue decision.
     park_mask = (
         (bhsv[:, :, 0] >= PARK_HUE_LO) & (bhsv[:, :, 0] <= PARK_HUE_HI)
         & (bhsv[:, :, 1] >= PARK_SAT_MIN)
     )
-    if PARK_CLOSE > 1:
-        park_mask = ndimage.binary_closing(park_mask, structure=np.ones((PARK_CLOSE,) * 2))
-    walked_park = park_mask & (explored > 0.5)
-    out = np.where(walked_park[:, :, np.newaxis],
-                   np.array(COLOR_PARK, dtype=np.float32), out)
-    log.info(f"Parks: {int(park_mask.sum()):,} px, walked {int(walked_park.sum()):,}")
+    # A park's footways and drives are not park-coloured, so the raw hue mask
+    # has thin light gaps running through it exactly where you walk.
+    park_region = (ndimage.binary_closing(park_mask, structure=np.ones((PARK_CLOSE,) * 2))
+                   if PARK_CLOSE > 1 else park_mask)
 
-    # Water (over the fog): blue where untraveled, white where you've been,
-    # blended by the anti-aliased explored mask for a soft boundary.
-    e = explored[:, :, np.newaxis]
-    water_color = (np.array(COLOR_WATER, dtype=np.float32) * (1.0 - e)
-                   + np.array(COLOR_WATER_DONE, dtype=np.float32) * e)
-    out = np.where(water_mask[:, :, np.newaxis], water_color, out)
+    # Covered ground: solid white, or solid green inside a park. These are the
+    # lines the whole image exists to show, so they get no texture at all.
+    walked_park = ex & park_region
+    walked_land = ex & ~park_region & ~water_mask
+    out[walked_land] = 255.0
+    out[walked_park] = np.array(COLOR_PARK, dtype=np.float32)
+    log.info(f"Covered: {int(walked_land.sum()):,} px land, "
+             f"{int(walked_park.sum()):,} px parkland")
 
-    # Red recent tint — after water, so newly traveled water shows red too
+    # Water: solid either way, blue untravelled and white where you have been.
+    out[water_mask & ~ex] = np.array(COLOR_WATER, dtype=np.float32)
+    out[water_mask & ex] = np.array(COLOR_WATER_DONE, dtype=np.float32)
+
+    # Recently explored: solid red, no blending at the edges.
     if recent is not None:
-        a = recent[:, :, np.newaxis]
-        out = out * (1.0 - a) + np.array(COLOR_RECENT, dtype=np.float32) * a
+        out[recent > 0.5] = np.array(COLOR_RECENT, dtype=np.float32)
 
     out = np.clip(out, 0, 255).astype(np.uint8)
     img = Image.fromarray(out, mode="RGB")
